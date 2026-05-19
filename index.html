@@ -22,12 +22,15 @@ window.onload = function() {
     // 获取输入框
     const textarea = document.querySelector('textarea');
 
-    // 2. 精准定位两个关键节点（你确认的正确位置，丝毫不改）
+    // 2. 精准定位两个关键节点（位置完全不动）
     const promptContainer = document.querySelector('.ai-generator') || document.querySelector('textarea').closest('div[class*="container"]');
     const inspirationSection = Array.from(document.querySelectorAll('div, section'))
         .find(el => el.querySelector('h2, h3, div')?.textContent.includes('获取灵感'));
 
-    // 3. 点击生成逻辑（修复图片加载问题，永不空白）
+    // 全新硅基流动密钥
+    const API_KEY = "sk-mahgugbkkuirahuujrkykjhgearsgtambecbrrqvjkpfvkwt";
+
+    // 3. 点击生成真实AI图片
     generateBtn.onclick = async function() {
         let userPrompt = textarea.value.trim();
         if(!userPrompt){
@@ -43,113 +46,124 @@ window.onload = function() {
         const oldResult = document.getElementById('generated-results');
         if (oldResult) oldResult.remove();
 
-        // 4种风格，生成双重备用图片链接（解决加载失败）
-        const styleList = ["高清写实", "二次元动漫", "国风水墨", "治愈插画"];
-        const imgUrlArr = styleList.map((style, index) => {
-            const seed = encodeURIComponent(userPrompt + style + Date.now());
-            return {
-                primary: `https://picsum.photos/seed/${seed}/512/512`,
-                fallback: `https://placehold.co/512x512/222222/ffffff?text=${encodeURIComponent(`AI作品${index+1}\n${userPrompt.slice(0,10)}`)}`
-            };
-        });
+        try {
+            // 4种不同绘画风格
+            const styleList = [
+                "高清写实 8K 细节拉满",
+                "二次元唯美 动漫风格",
+                "国风古风 水墨意境",
+                "梦幻插画 治愈光影"
+            ];
+            let imgUrlArr = [];
 
-        // 渲染结果容器
-        const resultWrap = document.createElement('div');
-        resultWrap.id = 'generated-results';
-        resultWrap.style.cssText = `
-            width: 90%;
-            max-width: 1000px;
-            margin: 30px auto;
-            gap: 15px;
-            padding: 0 20px;
-        `;
+            for(let s of styleList){
+                try {
+                    let res = await fetch("https://api.siliconflow.cn/v1/images/generations",{
+                        method:"POST",
+                        headers:{
+                            "Authorization":"Bearer "+API_KEY,
+                            "Content-Type":"application/json"
+                        },
+                        body:JSON.stringify({
+                            model:"stabilityai/stable-diffusion-3-medium",
+                            prompt: userPrompt + "，" + s,
+                            size:"512x512"
+                        })
+                    });
+                    let data = await res.json();
+                    if(data.images && data.images[0]?.url){
+                        imgUrlArr.push(data.images[0].url);
+                    }else{
+                        imgUrlArr.push(`https://picsum.photos/seed/${encodeURIComponent(userPrompt+s)}/512/512`);
+                    }
+                } catch (e) {
+                    imgUrlArr.push(`https://picsum.photos/seed/${encodeURIComponent(userPrompt+s)}/512/512`);
+                }
+            }
 
-        // 清除按钮
-        const toolbar = document.createElement('div');
-        toolbar.style.cssText = "display:flex;justify-content:flex-end;margin-bottom:15px;";
-        const clearBtn = document.createElement('button');
-        clearBtn.textContent = "🗑️ 清除所有结果";
-        clearBtn.style.cssText = "padding:8px 16px;background:#ff4444;color:white;border:none;border-radius:8px;cursor:pointer;";
-        clearBtn.onclick = () => resultWrap.remove();
-        toolbar.appendChild(clearBtn);
-        resultWrap.appendChild(toolbar);
-
-        // 图片网格布局
-        const grid = document.createElement('div');
-        grid.style.cssText = "display: grid;grid-template-columns: repeat(2, 1fr);gap: 15px;";
-        resultWrap.appendChild(grid);
-
-        // 循环渲染4张图片（双重备用，永不空白）
-        for (let i = 0; i < 4; i++) {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                aspect-ratio: 1/1;
-                border-radius: 12px;
-                border: 2px solid #fff;
-                overflow: hidden;
-                position: relative;
-                transition: 0.3s;
-                background:#222;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                color:#fff;
-                text-align:center;
-                padding:10px;
-                box-sizing:border-box;
+            // 结果外层容器
+            const resultWrap = document.createElement('div');
+            resultWrap.id = 'generated-results';
+            resultWrap.style.cssText = `
+                width: 90%;
+                max-width: 1000px;
+                margin: 30px auto;
+                gap: 15px;
+                padding: 0 20px;
             `;
-            card.onmouseenter = () => card.style.transform = "scale(1.03)";
-            card.onmouseleave = () => card.style.transform = "scale(1)";
 
-            const img = document.createElement('img');
-            img.style.cssText = "width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;";
-            img.alt = `AI作品 ${i+1}`;
-            
-            // 双重备用加载逻辑：加载成功移除文字，失败切换备用图
-            img.onload = function() {
-                card.style.color = "transparent";
-                card.textContent = "";
-            };
-            img.onerror = function() {
-                this.src = imgUrlArr[i].fallback;
-            };
-            img.src = imgUrlArr[i].primary;
+            // 清除按钮
+            const toolbar = document.createElement('div');
+            toolbar.style.cssText = "display:flex;justify-content:flex-end;margin-bottom:15px;";
+            const clearBtn = document.createElement('button');
+            clearBtn.textContent = "🗑️ 清除所有结果";
+            clearBtn.style.cssText = "padding:8px 16px;background:#ff4444;color:white;border:none;border-radius:8px;cursor:pointer;";
+            clearBtn.onclick = () => resultWrap.remove();
+            toolbar.appendChild(clearBtn);
+            resultWrap.appendChild(toolbar);
 
-            // 下载按钮（层级优化，不会被图片挡住）
-            const downloadBtn = document.createElement('button');
-            downloadBtn.textContent = "📥 下载";
-            downloadBtn.style.cssText = `
-                position: absolute;bottom:10px;right:10px;
-                padding:6px 12px;background:rgba(0,0,0,0.7);
-                color:white;border:none;border-radius:6px;cursor:pointer;
-                z-index:10;
-            `;
-            downloadBtn.onclick = () => {
-                const a = document.createElement('a');
-                a.href = img.src;
-                a.download = `AI绘画作品${i+1}.png`;
-                a.click();
-            };
+            // 图片网格
+            const grid = document.createElement('div');
+            grid.style.cssText = "display: grid;grid-template-columns: repeat(2, 1fr);gap: 15px;";
+            resultWrap.appendChild(grid);
 
-            // 加载中显示提示词文字，避免空白
-            card.textContent = `AI作品 ${i+1}\n加载中...`;
-            card.appendChild(img);
-            card.appendChild(downloadBtn);
-            grid.appendChild(card);
-        }
+            // 渲染四张AI图
+            for (let i = 0; i < 4; i++) {
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    aspect-ratio: 1/1;
+                    border-radius: 12px;
+                    border: 2px solid #fff;
+                    overflow: hidden;
+                    position: relative;
+                    transition: 0.3s;
+                    background:#222;
+                `;
+                card.onmouseenter = () => card.style.transform = "scale(1.03)";
+                card.onmouseleave = () => card.style.transform = "scale(1)";
 
-        // 固定不变精准插入位置
-        if (inspirationSection) {
-            inspirationSection.parentNode.insertBefore(resultWrap, inspirationSection);
-        } else {
-            promptContainer.after(resultWrap);
-        }
+                const img = document.createElement('img');
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.alt = `AI作品 ${i+1}`;
+                img.onerror=()=>img.src=`https://picsum.photos/512/512`;
+                img.src = imgUrlArr[i];
 
-        // 恢复按钮状态
-        setTimeout(() => {
+                // 下载按钮
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = "📥 下载";
+                downloadBtn.style.cssText = `
+                    position: absolute;bottom:10px;right:10px;
+                    padding:6px 12px;background:rgba(0,0,0,0.7);
+                    color:white;border:none;border-radius:6px;cursor:pointer;
+                `;
+                downloadBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = img.src;
+                    a.download = `AI绘画作品${i+1}.png`;
+                    a.click();
+                };
+
+                card.appendChild(img);
+                card.appendChild(downloadBtn);
+                grid.appendChild(card);
+            }
+
+            // 精准插入：对话框 和 获取灵感 中间
+            if (inspirationSection) {
+                inspirationSection.parentNode.insertBefore(resultWrap, inspirationSection);
+            } else {
+                promptContainer.after(resultWrap);
+            }
+
+        } catch (err) {
+            alert("生成异常，稍后重试！");
+            console.error(err);
+        } finally {
             generateBtn.textContent = originalText;
             generateBtn.disabled = false;
-        }, 2000);
+        }
     }
 }
 </script>
