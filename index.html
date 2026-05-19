@@ -19,28 +19,66 @@ window.onload = function() {
         generateBtn.style.opacity = "1";
     }
 
-    // 2. 精准定位两个关键节点（你确认的正确位置逻辑，完全保留）
+    // 获取输入框
+    const textarea = document.querySelector('textarea');
+
+    // 2. 精准定位两个关键节点（位置逻辑完全不动）
     const promptContainer = document.querySelector('.ai-generator') || document.querySelector('textarea').closest('div[class*="container"]');
     const inspirationSection = Array.from(document.querySelectorAll('div, section'))
         .find(el => el.querySelector('h2, h3, div')?.textContent.includes('获取灵感'));
 
-    // 3. 点击生成逻辑
-    generateBtn.onclick = function() {
-        // 按钮状态切换
+    // 填入你的 API Key
+    const API_KEY = "sk-wjlortwyrrifzrzxsjefgokblsvjtizmglgelmoohlpltsja";
+
+    // 3. 点击生成真实AI图片
+    generateBtn.onclick = async function() {
+        let userPrompt = textarea.value.trim();
+        if(!userPrompt){
+            alert("请输入绘画提示词再生成！");
+            return;
+        }
+
         const originalText = generateBtn.textContent;
-        generateBtn.textContent = "生成中...";
+        generateBtn.textContent = "AI绘制中...";
         generateBtn.disabled = true;
 
-        // 清除上一次生成的结果
+        // 清除旧结果
         const oldResult = document.getElementById('generated-results');
         if (oldResult) oldResult.remove();
 
-        // 模拟2秒生成延迟
-        setTimeout(() => {
-            generateBtn.textContent = originalText;
-            generateBtn.disabled = false;
+        try {
+            // 同时生成4张不同风格AI图
+            const styleList = [
+                "高清写实 8K 细节拉满",
+                "二次元唯美 动漫风格",
+                "国风古风 水墨意境",
+                "梦幻插画 治愈光影"
+            ];
+            let imgUrlArr = [];
 
-            // 主容器（沿用你原有的样式+位置）
+            // 批量请求生成
+            for(let s of styleList){
+                let res = await fetch("https://api.siliconflow.cn/v1/images/generations",{
+                    method:"POST",
+                    headers:{
+                        "Authorization":"Bearer "+API_KEY,
+                        "Content-Type":"application/json"
+                    },
+                    body:JSON.stringify({
+                        model:"stabilityai/stable-diffusion-3-medium",
+                        prompt: userPrompt + "，" + s,
+                        size:"512x512"
+                    })
+                });
+                let data = await res.json();
+                if(data.images && data.images[0]?.url){
+                    imgUrlArr.push(data.images[0].url);
+                }else{
+                    imgUrlArr.push("");
+                }
+            }
+
+            // 渲染结果
             const resultWrap = document.createElement('div');
             resultWrap.id = 'generated-results';
             resultWrap.style.cssText = `
@@ -51,7 +89,7 @@ window.onload = function() {
                 padding: 0 20px;
             `;
 
-            // 新增：顶部操作栏（清除按钮）
+            // 清除按钮
             const toolbar = document.createElement('div');
             toolbar.style.cssText = "display:flex;justify-content:flex-end;margin-bottom:15px;";
             const clearBtn = document.createElement('button');
@@ -61,19 +99,12 @@ window.onload = function() {
             toolbar.appendChild(clearBtn);
             resultWrap.appendChild(toolbar);
 
-            // 新增：图片网格布局
+            // 图片网格布局
             const grid = document.createElement('div');
             grid.style.cssText = "display: grid;grid-template-columns: repeat(2, 1fr);gap: 15px;";
             resultWrap.appendChild(grid);
 
-            // 4张真实图片（替代彩色方块+下载功能+悬浮动效）
-            const imgUrls = [
-                "https://picsum.photos/512/512?1",
-                "https://picsum.photos/512/512?2",
-                "https://picsum.photos/512/512?3",
-                "https://picsum.photos/512/512?4"
-            ];
-
+            // 循环渲染4张真实AI图
             for (let i = 0; i < 4; i++) {
                 const card = document.createElement('div');
                 card.style.cssText = `
@@ -83,17 +114,22 @@ window.onload = function() {
                     overflow: hidden;
                     position: relative;
                     transition: 0.3s;
+                    background:#222;
                 `;
-                // 悬浮放大效果
                 card.onmouseenter = () => card.style.transform = "scale(1.03)";
                 card.onmouseleave = () => card.style.transform = "scale(1)";
 
-                // 真实图片
                 const img = document.createElement('img');
-                img.src = imgUrls[i];
                 img.style.width = "100%";
                 img.style.height = "100%";
                 img.style.objectFit = "cover";
+                if(imgUrlArr[i]){
+                    img.src = imgUrlArr[i];
+                }else{
+                    img.alt = "生成失败";
+                    img.style.display="none";
+                    card.innerHTML="<div style='color:#fff;text-align:center;line-height:100%;'>生成失败</div>";
+                }
 
                 // 下载按钮
                 const downloadBtn = document.createElement('button');
@@ -106,23 +142,31 @@ window.onload = function() {
                 downloadBtn.onclick = () => {
                     const a = document.createElement('a');
                     a.href = img.src;
-                    a.download = `XiaoAI作品${i+1}.png`;
+                    a.download = `AI绘画作品${i+1}.png`;
                     a.click();
                 };
 
-                card.appendChild(img);
-                card.appendChild(downloadBtn);
+                if(imgUrlArr[i]){
+                    card.appendChild(img);
+                    card.appendChild(downloadBtn);
+                }
                 grid.appendChild(card);
             }
 
-            // 核心：你确认的正确位置插入逻辑（100%保留，未做任何修改）
+            // 固定不变精准插入位置
             if (inspirationSection) {
                 inspirationSection.parentNode.insertBefore(resultWrap, inspirationSection);
             } else {
                 promptContainer.after(resultWrap);
             }
 
-        }, 2000);
+        } catch (err) {
+            alert("生成失败，请检查API密钥或网络！");
+            console.error(err);
+        } finally {
+            generateBtn.textContent = originalText;
+            generateBtn.disabled = false;
+        }
     }
 }
 </script>
