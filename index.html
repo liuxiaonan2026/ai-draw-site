@@ -23,26 +23,31 @@ window.onload = function() {
 
     // 点击生成逻辑
     generateBtn.onclick = function(){
-        // 1. 先弹出图片链接（你可以直接点链接打开，100%能看到）
+        // 生成随机图片链接（防止缓存）
         const randomId = Math.floor(Math.random() * 1000);
         const imgUrl = `https://picsum.photos/512/512?random=${randomId}`;
-        alert(`🎉 生成成功！图片链接：\n${imgUrl}`);
         
-        // 2. 强制把图片加到页面最底部（不管有没有画廊容器，都能显示）
-        let body = document.body;
-        let img = document.createElement('img');
-        img.src = imgUrl;
-        img.style.width = "300px";
-        img.style.margin = "20px auto";
-        img.style.display = "block";
-        img.style.border = "2px solid #fff";
-        body.appendChild(img);
+        // 1. 弹出提示（你可以直接复制链接打开，100%能看到）
+        alert(`🎉 生成成功！\n图片链接：${imgUrl}`);
+        
+        // 2. 把图片直接加到页面底部，固定样式，保证能看到
+        const imgContainer = document.createElement('div');
+        imgContainer.style.cssText = `
+            position: relative;
+            width: 300px;
+            margin: 30px auto;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        `;
 
-        // 3. 尝试加到画廊（如果存在的话）
-        let gallery = document.querySelector('.gallery-grid') || document.querySelector('.inspiration-grid');
-        if(gallery){
-            gallery.prepend(img.cloneNode(true));
-        }
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.style.width = "100%";
+        img.style.display = "block";
+
+        imgContainer.appendChild(img);
+        document.body.appendChild(imgContainer);
     }
 }
 </script>
